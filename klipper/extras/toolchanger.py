@@ -135,14 +135,11 @@ class Toolchanger:
         self.status = STATUS_UNINITALIZED
         self.active_tool = None
         
-        # FIX: Initialize flag to bypass transform during homing
-        self.homing_active = False 
-        
         self.gcode_transform.next_transform = self.gcode_move.set_move_transform(self.gcode_transform, force=True)
         
-        # FIX: Register the G-code command in Klipper
+        # FIX: Register command pointing to gcode_transform object
         gcode = self.printer.lookup_object('gcode')
-        gcode.register_command("SET_TOOLCHANGER_HOMING", self.cmd_SET_TOOLCHANGER_HOMING, 
+        gcode.register_command("SET_TOOLCHANGER_HOMING", self.gcode_transform.cmd_SET_TOOLCHANGER_HOMING, 
                                desc="Bypass toolchanger matrix transformation during G28 to prevent Move out of range")
 
     def _handle_command_error(self):
