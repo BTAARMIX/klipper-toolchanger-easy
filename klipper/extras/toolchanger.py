@@ -134,7 +134,16 @@ class Toolchanger:
     def _handle_connect(self):
         self.status = STATUS_UNINITALIZED
         self.active_tool = None
+        
+        # FIX: Initialize flag to bypass transform during homing
+        self.homing_active = False 
+        
         self.gcode_transform.next_transform = self.gcode_move.set_move_transform(self.gcode_transform, force=True)
+        
+        # FIX: Register the G-code command in Klipper
+        gcode = self.printer.lookup_object('gcode')
+        gcode.register_command("SET_TOOLCHANGER_HOMING", self.cmd_SET_TOOLCHANGER_HOMING, 
+                               desc="Bypass toolchanger matrix transformation during G28 to prevent Move out of range")
 
     def _handle_command_error(self):
         self.status = STATUS_UNINITALIZED
@@ -736,10 +745,19 @@ class ToolGcodeTransform:
         self.tool = None
 
     def move(self, newpos, speed):
+        # FIX: If homing is active, bypass the coordinate transform completely
+        if self.homing_active:
+            return self.next_transform.move(newpos, speed)
+        # END FIX
+
         if not self.tool:
             return self.next_transform.move(newpos, speed)
         transformed_pos = [newpos[0] + self.tool.gcode_x_offset, newpos[1] + self.tool.gcode_y_offset, newpos[2] + self.tool.gcode_z_offset] + newpos[3:]
         return self.next_transform.move(transformed_pos, speed)
+
+    # FIX: Method called by user macros to toggle the homing bypass state
+    def cmd_SET_TOOLCHANGER_HOMING(self, gcmd):
+        self.homing_active = gcmd.get_int('ACTIVE', 1) == 1
 
     def get_position(self):
         base_pos = self.next_transform.get_position()
